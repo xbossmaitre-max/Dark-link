@@ -1,269 +1,66 @@
-let games = {}; 
-
-function checkWinner(board) {
-
-  const winPatterns = [
-
-    [0, 1, 2], [3, 4, 5], [6, 7, 8], 
-
-    [0, 3, 6], [1, 4, 7], [2, 5, 8], 
-
-    [0, 4, 8], [2, 4, 6]             
-
-  ];
-
-
-
-  for (const pattern of winPatterns) {
-
-    const [a, b, c] = pattern;
-
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-
-      return board[a]; 
-
-    }
-
-  }
-
-
-
-  return null; 
-
-}
-
-
-
-function isBoardFull(board) {
-
-  return board.every((cell) => cell !== null);
-
-}
-
-
-
-function displayBoard(board) {
-
-  let display = "";
-
-  for (let i = 0; i < 9; i++) {
-
-    display += board[i] ? board[i] : "🔳";
-
-    display += (i + 1) % 3 === 0 ? "\n" : " ";
-
-  }
-
-  return display.replace(/⚪/g, "⚪").replace(/🔴/g, "🔴"); 
-
-}
-
-
-
-function makeBotMove(board, currentPlayer) {
-
-  for (let i = 0; i < 9; i++) {
-
-    if (board[i] === null) {
-
-      board[i] = currentPlayer === "⚪" ? "🔴" : "⚪";
-
-      if (checkWinner(board)) {
-
-        return;
-
-      }
-
-      board[i] = null; 
-
-    }
-
-  }
-
-
-
-  for (let i = 0; i < 9; i++) {
-
-    if (board[i] === null) {
-
-      board[i] = currentPlayer === "⚪" ? "⚪" : "🔴";
-
-      if (checkWinner(board)) {
-
-        board[i] = "🔴"; 
-
-        return;
-
-      }
-
-      board[i] = null; 
-
-    }
-
-  }
-
-
-
-  const emptyCells = board.reduce((acc, cell, index) => {
-
-    if (cell === null) {
-
-      acc.push(index);
-
-    }
-
-    return acc;
-
-  }, []);
-
-
-
-  if (emptyCells.length > 0) {
-
-    const randomIndex = Math.floor(Math.random() * emptyCells.length);
-
-    const botMove = emptyCells[randomIndex];
-
-    board[botMove] = currentPlayer === "⚪" ? "🔴" : "⚪";
-
-  }
-
-}
-
-
-
-function resetGame(playerID) {
-
-  games[playerID] = {
-
-    board: Array(9).fill(null),
-
-    currentPlayer: "⚪"
-
-  };
-
-}
-
-
-
 module.exports = {
-
   config: {
-
-    name: "ttt",
-
-    aliases: ["tictactoe"],
-
-    version: "1.0",
-
-    author: "Kshitiz",
-
-    category: "game",
-
+    name: "top",
+    version: "1.3",
+    author: "XxGhostxX", // Ce script a été créé par XxGhostxX, ne pas modifier sans autorisation.
+    role: 0,
+    shortDescription: {
+      en: "🎉 Top 10 Rich Users 💵"
+    },
+    longDescription: {
+      en: "🎉 Affiche le classement des 10 utilisateurs les plus riches du groupe 💵"
+    },
+    category: "group",
+    guide: {
+      en: "{pn} [page]",
+    }
   },
 
-  onStart: async function ({ event, api }) {
+  onStart: async function ({ api, args, message, event, usersData }) {
+    const allUsers = await usersData.getAll();
 
-    const playerID = event.senderID;
+    // Tri des utilisateurs par argent
+    const topUsers = allUsers.sort((a, b) => b.money - a.money).slice(0, 10); // Limité au Top 10
 
-
-
-   
-
-    if (!games[playerID] || isBoardFull(games[playerID].board) || checkWinner(games[playerID].board)) {
-
-      resetGame(playerID);
-
+    // Si aucune donnée n'est trouvée
+    if (topUsers.length === 0) {
+      return api.sendMessage("❌ Aucune donnée trouvée pour les utilisateurs. 🌚", event.threadID, event.messageID);
     }
 
+    // Gestion de la pagination (2 pages, 5 utilisateurs par page)
+    let page = args[0] ? parseInt(args[0]) : 1;
+    const usersPerPage = 5;
+    const totalPages = Math.ceil(topUsers.length / usersPerPage);
+    const startIndex = (page - 1) * usersPerPage;
+    const endIndex = startIndex + usersPerPage;
+    const usersOnPage = topUsers.slice(startIndex, endIndex);
 
-
-    const introMessage = "Reply box by number\n𝑇𝑢 𝑒𝑠 '⚪' 𝑒𝑡 𝑙𝑒 𝑏𝑜𝑡 𝑒𝑠𝑡 '🔴'.";
-
-    api.sendMessage(introMessage, event.threadID, event.messageID);
-
-
-
-    const boardMessage = displayBoard(games[playerID].board);
-
-    api.sendMessage(boardMessage, event.threadID, event.messageID);
-
-  },
-
-  onChat: async function ({ event, api, args }) {
-
-    const playerID = event.senderID;
-
-
-
-  
-
-    if (!games[playerID]) {
-
-      api.sendMessage("", event.threadID);
-
-      return;
-
+    // Si la page demandée est invalide
+    if (page < 1 || page > totalPages) {
+      return api.sendMessage(`❌ Page invalide. Il y a ${totalPages} pages disponibles. 📜`, event.threadID, event.messageID);
     }
 
+    // Création de la liste des utilisateurs les plus riches
+    const topUsersList = usersOnPage.map((user, index) => {
+      const userMoney = user.money || 0;
+      return `🎖️ ${startIndex + index + 1}. ${user.name} : ${userMoney} ${getRandomEmoji()}`;
+    });
 
+    // Ajout d'un message spécial pour le premier utilisateur
+    const firstUser = topUsers[0];
+    const congratulations = `🏆 👑 🎉 Félicitations à ${firstUser.name} pour être en tête avec ${firstUser.money || 0}! 🎉 👑 🏆`;
 
-    const position = parseInt(args[0]);
+    // Message avec pagination
+    const paginationMessage = `📜 Page ${page} sur ${totalPages}\n`;
+    const messageText = `🌟 𝗧𝗼𝗽 𝟭𝟬 𝗗𝗲𝘀 𝗨𝘁𝗶𝗹𝗶𝘀𝗮𝘁𝗲𝘂𝗿𝘀 𝗟𝗲𝘀 𝗣𝗹𝘂𝘀 𝗥𝗶𝗰𝗵𝗲𝘀 🌟\n\n${topUsersList.join('\n')}\n\n${paginationMessage}${congratulations}`;
+    return api.sendMessage(messageText, event.threadID, event.messageID);
+  }
+};
 
+// Fonction pour obtenir un emoji aléatoire
+const emojis = [
+  "🎉", "💵", "🌟", "👑", "🏆", "💸", "🎖️", "😎", "🥳", "🤑", "🤩", "😍", "😲", 
+  "🤓", "🎊", "🎀", "📈", "💎", "😭", "🤣", "😂", "☺️", "🫡", "😱", "🤔", "🤐"
+];
 
-
-    if (isBoardFull(games[playerID].board) || checkWinner(games[playerID].board)) {
-
-     
-
-      resetGame(playerID);
-
-    }
-
-
-
-    if (isNaN(position) || position < 1 || position > 9 || games[playerID].board[position - 1] !== null) {
-
-      const errorMessage = "";
-
-      api.sendMessage(errorMessage, event.threadID);
-
-      return;
-
-    }
-
-
-
-    games[playerID].board[position - 1] = "⚪";
-
-
-
-    makeBotMove(games[playerID].board, games[playerID].currentPlayer);
-
-
-
-    const updatedBoardMessage = displayBoard(games[playerID].board);
-
-    api.sendMessage(updatedBoardMessage, event.threadID, event.messageID);
-
-
-
-    const winner = checkWinner(games[playerID].board);
-
-    if (winner) {
-
-      const winMessage = `${winner} 𝐫𝐞𝐦𝐩𝐨𝐫𝐭𝐞 𝐥𝐚 𝐩𝐚𝐫𝐭𝐢𝐞 🍀`;
-
-      api.sendMessage(winMessage, event.threadID, event.messageID);
-
-    } else if (isBoardFull(games[playerID].board)) {
-
-      const drawMessage = "𝙈𝘼𝙏𝘾𝙃 𝙉𝙐𝙇.....🎶";
-
-      api.sendMessage(drawMessage, event.threadID, event.messageID);
-
-    }
-
-  },
-
-}
+const getRandomEmoji = () => emojis[Math.floor(Math.random() * emojis.length)];
